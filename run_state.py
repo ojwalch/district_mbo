@@ -15,7 +15,7 @@ import visualize_maps
 import elections
 import config
 
-## Reads the 2016 Congressional district files
+## Reads Congressional district files
 def read_districts(state,alt_map):
     
     # If an alternative map is provided
@@ -30,6 +30,7 @@ def read_districts(state,alt_map):
     
     # Otherwise, default to 2016 Census data for districting
     district_data = shapefile.Reader("data/cb_2016_us_cd115_500k/cb_2016_us_cd115_500k.shp")
+
     districts = []
     for tract in district_data.shapeRecords():
         if(tract.record[0] == config.state_dict[state]):
@@ -55,6 +56,7 @@ def shape_to_district(tract,districts):
 ## Gets shapefile for state
 def data_for_state(state):
     
+    # Can be replaced with 2017 data
     return shapefile.Reader("data/cb_2016_" + config.state_dict[state] + "_tract_500k/cb_2016_" + config.state_dict[state] +"_tract_500k.shp")
 
 
@@ -62,6 +64,8 @@ def data_for_state(state):
 ## Loads all relevant data for a state
 def read(state, alt_map):
     
+    print "Reading " + state + " data..."
+
     shape_data = data_for_state(state)
     
     id_to_centroids = {} # GEOID -> centroid dictionary
@@ -93,11 +97,11 @@ def read(state, alt_map):
                 num_dists = num_dists + 1
 
 
-    # Extract data for blocks + containing districts
-    block_data = []
-    block_districts = []
+    # Extract data for census units + containing districts
+    unit_data = []
+    unit_districts = []
 
-    num_valid_blocks = 0
+    num_valid_units = 0
     tot_pop = 0
     district_pops = [0] * num_dists
     
@@ -115,68 +119,79 @@ def read(state, alt_map):
                 pop = int(row[3]) # Get population
                 
                 # Append GEOID, centroid, and population to array
-                block_data.append(int(key[config.id_0:]))
-                block_data.append(centroid.x)
-                block_data.append(centroid.y)
-                block_data.append(pop)
+                unit_data.append(int(key[config.id_0:]))
+                unit_data.append(centroid.x)
+                unit_data.append(centroid.y)
+                unit_data.append(pop)
                 
                 # Append GEOID and district index to file
-                block_districts.append(int(key[config.id_0:]))
-                block_districts.append(id_to_district[key])
+                unit_districts.append(int(key[config.id_0:]))
+                unit_districts.append(id_to_district[key])
                 district_pops[id_to_district[key]] += pop
                 
                 tot_pop += pop
-                num_valid_blocks = num_valid_blocks + 1
+                num_valid_units = num_valid_units + 1
 
+    call('rm ' + config.temp_folder + state + '*', shell=True)
 
-    # Write block data to file
-    output_file = open(state + config.block_data_suffix, 'wb')
-    float_array = array('d', block_data)
+    # Write unit data to file
+    output_file = open(config.temp_folder + state + config.unit_data_suffix, 'wb')
+    float_array = array('d', unit_data)
     float_array.tofile(output_file)
     output_file.close()
 
     # Write containing district data to file
-    output_file = open(state + config.block_district_suffix, 'wb')
-    float_array = array('d', block_districts)
+    output_file = open(config.temp_folder + state + config.unit_district_suffix, 'wb')
+    float_array = array('d', unit_districts)
     float_array.tofile(output_file)
     output_file.close()
 
-    return [num_valid_blocks, num_dists, tot_pop]
+    return [num_valid_units, num_dists, tot_pop]
 
-# Main function
-def run(state,k,max_iter,initial_state,ms_param,stopCrit,lb_frac,temp,annealing,verbose,driving_distance,mode,alt_map):
 
-    print "Reading " + state + " data..."
-    p = read(state,alt_map)
 
-    print state + " has " + str(p[0]) + " blocks and " + str(p[1]) + " districts."
+# Main function without re-loading data
+def run_with_data(state,k,max_iter,initial_state,ms_param,stopCrit,lb_frac,temp,annealing,verbose,driving_distance,mode,alt_map,p):
+
+    print state + " has " + str(p[0]) + " tracts and " + str(p[1]) + " districts."
     print "\nRunning " + state + "..."
     lowerBound = round(lb_frac*p[2]/p[1])
 
-    print "\nMinimum district population set to " + str(lowerBound) + "."
+    if(verbose):
+        print "\nMinimum district population set to " + str(lowerBound) + "."
+    
+    
+    # Remove old files iteration files
+    call('rm ' + config.temp_folder + state + '*step*', shell=True)
 
-    # Remove old files
-    call("rm output/iter*", shell=True)
 
-    # Call MBO
-    command = ["./district_mbo", state + config.block_data_suffix, str(p[0]),str(p[1]),str(k),str(max_iter),str(initial_state),str(ms_param),str(stopCrit),str(lowerBound),state + config.block_district_suffix,str(temp),str(annealing),str(verbose),str(driving_distance)]
+    # Call main algorithm
+    command = ["./district_mbo", config.temp_folder + state + config.unit_data_suffix, str(p[0]),str(p[1]),str(k),str(max_iter),str(initial_state),str(ms_param),str(stopCrit),str(lowerBound), config.temp_folder + state + config.unit_district_suffix,str(temp),str(annealing),str(verbose),str(driving_distance)]
     call(command)
 
     # Count number of data files saved
-    num_iter = len(glob.glob("output/iter_" + state + "*"))
+    num_iter = len(glob.glob(config.temp_folder + state + '*step*'))
     print str(num_iter) + " iterations completed."
-
+    
     # Remove old images
     call("rm output/flow*", shell=True)
-    
+
     if mode != config.MODE_NONE:
         visualize_maps.make_pics(state,data_for_state(state),p[1],num_iter,mode)
-
-    #elections.run_election(state,config.state_dict[state],p[1],num_iter);
     
     return num_iter
 
 
+# Main function
+def run(state,k,max_iter,initial_state,ms_param,stopCrit,lb_frac,temp,annealing,verbose,driving_distance,mode,alt_map):
+
+    p = read(state,alt_map)
+    num_iter = run_with_data(state,k,max_iter,initial_state,ms_param,stopCrit,lb_frac,temp,annealing,verbose,driving_distance,mode,alt_map,p)
+
+    return num_iter
+
+
+# If running straight from the command line:
 if __name__ == '__main__':
 
     if(len(sys.argv) == 1):

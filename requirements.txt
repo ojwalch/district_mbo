@@ -1,0 +1,6 @@
+Shapely==1.6.3
+imageio==2.2.0
+numpy==1.13.3
+Pillow==5.1.0
+matplotlib==2.2.2
+pyshp==1.2.12

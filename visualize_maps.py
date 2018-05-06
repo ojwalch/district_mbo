@@ -39,7 +39,7 @@ def make_pics(state,shape_data,num_lab,num_iter,mode):
             
     
     for frame in picture_range:
-        name = "output/iter_" + state + "_blocks_" + str(frame)
+        name = config.temp_folder + state + config.unit_data_suffix + '_step_' + str(frame)
  
         # Read label file & reshape into a matrix
         labels  = np.fromfile(name,dtype=np.uint32)
@@ -89,8 +89,15 @@ def make_pics(state,shape_data,num_lab,num_iter,mode):
 
     # Save GIF
     images = []
+
     for filename in filenames:
         images.append(imageio.imread(filename))
+
+    # Reverse for looping
+    filenames.reverse()
+    for filename in filenames:
+        images.append(imageio.imread(filename))
+
     imageio.mimsave(state + '_output.gif', images,'GIF',duration=5.0/len(filenames))
 
 
