@@ -104,7 +104,7 @@ else:
                 print_syntax()
 
         run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,alt_map)
-        print('GIF saved to ' + state + '_output.gif')
+        print('GIF saved to gifs/' + state + '_output.gif')
     else:
         print('Invalid state! Please enter a two letter state abbreviation.\n\n')
         print_syntax()

@@ -14,7 +14,7 @@ def make_pics(state,shape_data,num_lab,num_iter,mode):
     colors = [cm(1.*i/num_lab) for i in range(num_lab)]
     
     # Sorts colors by geographic location
-    geosorted_labels  = np.fromfile("geosorted_labels",dtype=np.uint32)
+    geosorted_labels  = np.fromfile('geosorted_labels',dtype=np.uint32)
     filenames = []
     
     shape_dict = {}     # GEOID -> shape data
@@ -23,7 +23,7 @@ def make_pics(state,shape_data,num_lab,num_iter,mode):
         aff_geo_id = int(tract.record[3][config.id_0:]) # GEOID
         shape_dict[aff_geo_id] = tract
     
-    if mode == config.MODE_BEGIN_END: # First and last only
+    if mode == config.MODE_BEGIN_END: # First and last frames only
         picture_range = [0, num_iter-1]
 
     if mode == config.MODE_LOG: # Logarithm
@@ -34,7 +34,7 @@ def make_pics(state,shape_data,num_lab,num_iter,mode):
         for i in range(0,len(picture_range)):
             picture_range[i] = int(pow(base,picture_range[i])) - 1
 
-    if mode == config.MODE_ALL: # All
+    if mode == config.MODE_ALL: # All frames
         picture_range = range(0,num_iter)
             
     
@@ -46,7 +46,7 @@ def make_pics(state,shape_data,num_lab,num_iter,mode):
         labels = np.reshape(labels,(-1,num_lab+1))
         
         # Configure plot
-        fig = plt.figure(frameon=False,facecolor="white")
+        fig = plt.figure(frameon=False,facecolor='white')
         ax = fig.add_axes([0, 0, 1, 1])
         ax.axis('off')
         
@@ -82,7 +82,7 @@ def make_pics(state,shape_data,num_lab,num_iter,mode):
         ax.axis('off')
         
         # Write to file
-        name = "output/flow_" + state + "_" +  str(frame).rjust(3, '0') + ".png"
+        name = 'output/flow_' + state + '_' +  str(frame).rjust(3, '0') + '.png'
         with open(name, 'w') as outfile:
             fig.canvas.print_png(outfile)
         filenames.append(name)
@@ -98,7 +98,7 @@ def make_pics(state,shape_data,num_lab,num_iter,mode):
     for filename in filenames:
         images.append(imageio.imread(filename))
 
-    imageio.mimsave(state + '_output.gif', images,'GIF',duration=5.0/len(filenames))
+    imageio.mimsave('gifs/' + state + '_output.gif', images,'GIF',duration=5.0/len(filenames))
 
 
 

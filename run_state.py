@@ -12,7 +12,6 @@ from shapely.geometry.multipolygon import MultiPolygon
 import glob
 import math
 import visualize_maps
-import elections
 import config
 
 ## Reads Congressional district files
@@ -20,7 +19,7 @@ def read_districts(state,alt_map):
     
     # If an alternative map is provided
     if(len(alt_map) > 0):
-        district_data = shapefile.Reader("data/" + alt_map)
+        district_data = shapefile.Reader('data/' + alt_map)
         districts = []
         for tract in district_data.shapeRecords():
             district_poly = shape(tract.shape.__geo_interface__)
@@ -29,7 +28,7 @@ def read_districts(state,alt_map):
         return districts
     
     # Otherwise, default to 2016 Census data for districting
-    district_data = shapefile.Reader("data/cb_2016_us_cd115_500k/cb_2016_us_cd115_500k.shp")
+    district_data = shapefile.Reader('data/cb_2016_us_cd115_500k/cb_2016_us_cd115_500k.shp')
 
     districts = []
     for tract in district_data.shapeRecords():
@@ -57,14 +56,14 @@ def shape_to_district(tract,districts):
 def data_for_state(state):
     
     # Can be replaced with 2017 data
-    return shapefile.Reader("data/cb_2016_" + config.state_dict[state] + "_tract_500k/cb_2016_" + config.state_dict[state] +"_tract_500k.shp")
+    return shapefile.Reader('data/cb_2016_' + config.state_dict[state] + '_tract_500k/cb_2016_' + config.state_dict[state] +'_tract_500k.shp')
 
 
 
 ## Loads all relevant data for a state
 def read(state, alt_map):
     
-    print "Reading " + state + " data..."
+    print 'Reading ' + state + ' data...'
 
     shape_data = data_for_state(state)
     
@@ -153,12 +152,12 @@ def read(state, alt_map):
 # Main function without re-loading data
 def run_with_data(state,k,max_iter,initial_state,ms_param,stopCrit,lb_frac,temp,annealing,verbose,driving_distance,mode,alt_map,p):
 
-    print state + " has " + str(p[0]) + " tracts and " + str(p[1]) + " districts."
-    print "\nRunning " + state + "..."
+    print state + ' has ' + str(p[0]) + ' tracts and ' + str(p[1]) + ' districts.'
+    print '\nRunning ' + state + '...'
     lowerBound = round(lb_frac*p[2]/p[1])
 
     if(verbose):
-        print "\nMinimum district population set to " + str(lowerBound) + "."
+        print '\nMinimum district population set to ' + str(lowerBound) + '.'
     
     
     # Remove old files iteration files
@@ -166,15 +165,15 @@ def run_with_data(state,k,max_iter,initial_state,ms_param,stopCrit,lb_frac,temp,
 
 
     # Call main algorithm
-    command = ["./district_mbo", config.temp_folder + state + config.unit_data_suffix, str(p[0]),str(p[1]),str(k),str(max_iter),str(initial_state),str(ms_param),str(stopCrit),str(lowerBound), config.temp_folder + state + config.unit_district_suffix,str(temp),str(annealing),str(verbose),str(driving_distance)]
+    command = ['./district_mbo', config.temp_folder + state + config.unit_data_suffix, str(p[0]),str(p[1]),str(k),str(max_iter),str(initial_state),str(ms_param),str(stopCrit),str(lowerBound), config.temp_folder + state + config.unit_district_suffix,str(temp),str(annealing),str(verbose),str(driving_distance)]
     call(command)
 
     # Count number of data files saved
     num_iter = len(glob.glob(config.temp_folder + state + '*step*'))
-    print str(num_iter) + " iterations completed."
+    print str(num_iter) + ' iterations completed.'
     
     # Remove old images
-    call("rm output/flow*", shell=True)
+    call('rm output/flow*', shell=True)
 
     if mode != config.MODE_NONE:
         visualize_maps.make_pics(state,data_for_state(state),p[1],num_iter,mode)
@@ -195,12 +194,12 @@ def run(state,k,max_iter,initial_state,ms_param,stopCrit,lb_frac,temp,annealing,
 if __name__ == '__main__':
 
     if(len(sys.argv) == 1):
-        state = "VA" # Run VA by default
+        state = 'VA' # Run VA by default
     else:
         state = sys.argv[1]
 
 
-    ### Parameters for MBO ###
+    ### Parameters for auction dynamics algorithm ###
     k = 150                                              # Number of nearest neighbors
     max_iter = 300                                       # Maximum number of iterations to run
     initial_state = config.INIT_CURRENT                  # INIT_RAND: start from random, INIT_CURRENT: start with 2016 districts, INIT_ALT: alternative map
@@ -212,7 +211,7 @@ if __name__ == '__main__':
     verbose = 0                                          # 1: print during ms_mbo call, 0: suppress output
     driving_distance = 0                                 # Make 1 to use driving distance for states where that data is available
     mode = config.MODE_BEGIN_END                         # Generate visualization with mode : 0 (first and last), 1 (log sampling), 2 (all)
-    alt_map = ""                                         # Alternative mapping file
+    alt_map = ''                                         # Alternative mapping file
 
     run(state,k,max_iter,initial_state,ms_param,stopCrit,lb_frac,temp,annealing,verbose,driving_distance,mode,alt_map)
 

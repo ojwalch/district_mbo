@@ -18,17 +18,17 @@ def make_driving_dist():
     init_state = config.INIT_RAND
     ms_param = 1
     stopping_criteria = 0.00
-    lb_frac = 0.985
+    lb_frac = 0.980
     temp =  .1
     annealing = 0.985
-    verbose = 1
+    verbose = 0
     driving_distance = 0
     mode = config.MODE_BEGIN_END
 
     # Run without driving distance
-    num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,"")
+    num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,'')
 
-    img = Image.open('output/flow_' + state + '_' +  str(num_iter - 1).rjust(3, '0') + ".png")
+    img = Image.open('output/flow_' + state + '_' +  str(num_iter - 1).rjust(3, '0') + '.png')
     w, h = img.size
 
     x_pad = 200
@@ -37,21 +37,21 @@ def make_driving_dist():
     new_im = Image.new('RGBA', (int(2*w) + 2*x_pad, int(h) + y_pad))
     draw = ImageDraw.Draw(new_im)
 
-    font = ImageFont.truetype("/Library/Fonts/Arial Unicode.ttf",75)
+    font = ImageFont.truetype('/Library/Fonts/Arial Unicode.ttf',75)
     new_im.paste(img,(int(x_pad*0.5),int(y_pad)))
     draw.text((0,int(2*y_pad)),'A',font=font,fill='#000000')
 
     # Run with driving distance
     driving_distance = 1
-    num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,"")
+    num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,'')
     
-    img = Image.open('output/flow_' + state + '_' + str(num_iter - 1).rjust(3, '0') + ".png")
+    img = Image.open('output/flow_' + state + '_' + str(num_iter - 1).rjust(3, '0') + '.png')
     w, h = img.size
 
     new_im.paste(img,(w + int(x_pad*1.5),y_pad))
     draw.text((w + int(x_pad),int(2*y_pad)),'B',font=font,fill='#000000')
 
-    new_im.save('figure_driving_dist.png')
+    new_im.save('figures/figure_driving_dist.png')
 
 
 # Run VA at 5 different choices of nearest neighbors
@@ -60,10 +60,10 @@ def make_knn():
     state = 'VA'
     ms_param =  1
     max_iter = 300
-    init_state = config.INIT_RAND
+    init_state = config.INIT_CURRENT
     stopping_criteria = 0.00
-    lb_frac = 0.985
-    temp =  0.1
+    lb_frac = 0.980
+    temp =  0
     annealing = 0.985
     verbose = 0
     driving_distance = 0
@@ -74,9 +74,9 @@ def make_knn():
     for i in range(0,len(k_range)):
         
         k = k_range[i]
-        num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,"")
+        num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,'')
         
-        img = Image.open('output/flow_' + state + '_' +  str(num_iter - 1).rjust(3, '0') + ".png")
+        img = Image.open('output/flow_' + state + '_' +  str(num_iter - 1).rjust(3, '0') + '.png')
         
         if i == 0:
             w, h = img.size
@@ -97,11 +97,11 @@ def make_knn():
         new_im.paste(img,(x0,y0))
         
         title_string =  'k = ' + str(k)
-        font=ImageFont.truetype("/Library/Fonts/Arial Unicode.ttf",40)
+        font=ImageFont.truetype('/Library/Fonts/Arial Unicode.ttf',40)
         
         draw.text((int(x0 + (w + x_pad)/2), y0),title_string,font=font,fill='#000000')
 
-    new_im.save('figure_knn.png')
+    new_im.save('figures/figure_knn.png')
 
 
 # Run VA at 5 different choices of centroid distance parameter
@@ -110,10 +110,10 @@ def make_ms():
     state = 'VA'
     k =  150
     max_iter = 300
-    init_state = config.INIT_RAND
+    init_state = config.INIT_CURRENT
     stopping_criteria = 0.00
-    lb_frac = 0.985
-    temp =  0.1
+    lb_frac = 0.980
+    temp =  0
     annealing = 0.985
     verbose = 0
     driving_distance = 0
@@ -124,9 +124,9 @@ def make_ms():
     for i in range(0,len(ms_range)):
         
         ms_param = ms_range[i]
-        num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,"")
+        num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,'')
     
-        img = Image.open('output/flow_' + state + '_' +  str(num_iter - 1).rjust(3, '0') + ".png")
+        img = Image.open('output/flow_' + state + '_' +  str(num_iter - 1).rjust(3, '0') + '.png')
 
         if i == 0:
             w, h = img.size
@@ -146,13 +146,13 @@ def make_ms():
 
         new_im.paste(img,(x0,y0))
 
-        title_string = u"\u03B1" + " = " + str(ms_param) #
-        font=ImageFont.truetype("/Library/Fonts/Arial Unicode.ttf",40)
+        title_string = u'\u03B1' + ' = ' + str(ms_param) #
+        font=ImageFont.truetype('/Library/Fonts/Arial Unicode.ttf',40)
 
         draw.text((int(x0 + (w + x_pad)/2), y0),title_string,font=font,fill='#000000')
 
 
-    new_im.save('figure_ms.png')
+    new_im.save('figures/figure_ms.png')
 
 
 # Show how energy changes with iteration number for 4 states, initializing from random
@@ -166,10 +166,10 @@ def make_energy_traj():
         max_iter = 100
         init_state = config.INIT_RAND
         stopping_criteria = 0.00
-        lb_frac = 0.985
+        lb_frac = 0.980
         temp =  0.1
         annealing = 0.95
-        verbose = 1
+        verbose = 0
         driving_distance = 0
         mode = config.MODE_NONE
         ms_param = 1
@@ -183,8 +183,8 @@ def make_energy_traj():
         colors = iter(cm.rainbow(np.linspace(0, 1, num_runs)))
 
         for i in range(0,num_runs):
-            num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,"")
-            energy = np.fromfile("energy",dtype=np.float64)
+            num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,'')
+            energy = np.fromfile('energy',dtype=np.float64)
 
             axis_energy.plot(energy[0:roi], 'k--',color=next(colors))
 
@@ -196,11 +196,11 @@ def make_energy_traj():
         plt.xlabel('Iteration #', fontsize=16)
         plt.ylabel('Energy', fontsize=16)
 
-        plt.savefig(state + '_figure_energy.png')
+        plt.savefig('figures/' + state + '_figure_energy.png')
 
     for i in range(0,len(states)):
 
-        img = Image.open(states[i] + '_figure_energy.png')
+        img = Image.open('figures/' + states[i] + '_figure_energy.png')
 
         w, h = img.size
         x_pad = 50
@@ -209,7 +209,7 @@ def make_energy_traj():
         if i == 0:
             new_im = Image.new('RGBA', (int(2*w) + 3*x_pad, int(2*h) + 3*y_pad))
             draw = ImageDraw.Draw(new_im)
-            font=ImageFont.truetype("/Library/Fonts/Arial Unicode.ttf",85)
+            font=ImageFont.truetype('/Library/Fonts/Arial Unicode.ttf',85)
 
         x_ind = i % 2
         y_ind = math.floor(i/2)
@@ -218,7 +218,7 @@ def make_energy_traj():
 
 
 
-    new_im.save('figure_combined_energy.png')
+    new_im.save('figures/figure_combined_energy.png')
 
 
 
@@ -230,7 +230,7 @@ def make_energy_hist():
     max_iter = 100
     init_state = config.INIT_RAND
     stopping_criteria = 0.00
-    lb_frac = 0.985
+    lb_frac = 0.980
     temp =  0
     annealing = 0.985
     verbose = 0
@@ -244,22 +244,22 @@ def make_energy_hist():
     
     # Run current configuration
     init_state = config.INIT_CURRENT
-    num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,"")
-    energy = np.fromfile("energy",dtype=np.float64)
+    num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,'')
+    energy = np.fromfile('energy',dtype=np.float64)
     start_energies_current.append(energy[0])
 
     # Run remedial
     init_state = config.INIT_ALT
-    num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,"Remedial Plan Shapefile.shp")
-    energy = np.fromfile("energy",dtype=np.float64)
+    num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,'Remedial Plan Shapefile.shp')
+    energy = np.fromfile('energy',dtype=np.float64)
     start_energies_alt.append(energy[0])
 
     # Run from random num_runs times
     num_runs = 30
     init_state = config.INIT_RAND
     for i in range(0,num_runs):
-        num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,"")
-        energy = np.fromfile("energy",dtype=np.float64)
+        num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,'')
+        energy = np.fromfile('energy',dtype=np.float64)
         final_energy = energy[num_iter - 1]
         
         for j in range(0,num_iter - 1):
@@ -285,7 +285,7 @@ def make_energy_hist():
     axis_energy.xaxis.set_ticks_position('bottom')
     axis_energy.yaxis.set_ticks_position('left')
 
-    plt.savefig('figure_energy_hist.png')
+    plt.savefig('figures/figure_energy_hist.png')
 
 
 # Make the PA figure, varying parameters
@@ -303,7 +303,7 @@ def make_hist_grid():
             max_iter = 500
             init_state = config.INIT_RAND
             stopping_criteria = 0.00
-            lb_frac = 0.985
+            lb_frac = 0.980
             temp =  0.1
             annealing = 0.985
             verbose = 0
@@ -316,14 +316,14 @@ def make_hist_grid():
             
             # Run current configuration
             init_state = config.INIT_CURRENT
-            num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,"")
-            energy = np.fromfile("energy",dtype=np.float64)
+            num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,'')
+            energy = np.fromfile('energy',dtype=np.float64)
             start_energies_current.append(energy[0])
             
             # Run remedial
             init_state = config.INIT_ALT
-            num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,"Remedial Plan Shapefile.shp")
-            energy = np.fromfile("energy",dtype=np.float64)
+            num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,'Remedial Plan Shapefile.shp')
+            energy = np.fromfile('energy',dtype=np.float64)
             start_energies_alt.append(energy[0])
             
             # Run (initializing with random) num_runs times
@@ -332,10 +332,10 @@ def make_hist_grid():
             for i in range(0,num_runs):
                 
                 if i == 0:
-                    p = run_state.read(state,"")
+                    p = run_state.read(state,'')
             
-                num_iter = run_state.run_with_data(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,"",p)
-                energy = np.fromfile("energy",dtype=np.float64)
+                num_iter = run_state.run_with_data(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,'',p)
+                energy = np.fromfile('energy',dtype=np.float64)
                 final_energy = energy[num_iter - 1]
                 
                 for j in range(0,num_iter - 1):
@@ -365,9 +365,9 @@ def make_hist_grid():
             axis_energy.yaxis.set_ticks_position('left')
             axis_energy.set_xlim([0.01,0.05])
             axis_energy.set_ylim([0,1])
-            save_name = 'energy_grid' + str(k) + '_' + str(ms_param) +'.png'
+            save_name = 'output/energy_grid' + str(k) + '_' + str(ms_param) +'.png'
             plt.savefig(save_name)
-            plt.close("all")
+            plt.close('all')
 
 
             img = Image.open(save_name)
@@ -388,7 +388,7 @@ def make_hist_grid():
 
             new_im.paste(img,(x0,y0))
 
-    new_im.save('figure_energy_grid.png')
+    new_im.save('figures/figure_energy_grid.png')
 
 
 # Make a GIF showing flow in PA from Remedial plan.
@@ -399,15 +399,15 @@ def make_pa_gif():
     init_state = config.INIT_ALT
     ms_param = 1
     stopping_criteria = 0.00
-    lb_frac = 0.985
+    lb_frac = 0.980
     temp =  0
     annealing = 0.985
     verbose = 0
     driving_distance = 0
     mode = config.MODE_LOG
-    alt_map = "Remedial Plan Shapefile.shp"
+    alt_map = 'Remedial Plan Shapefile.shp'
     run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,alt_map)
-    call("mv PA_output.gif figure_PA_output.gif", shell=True)
+    call('mv gifs/PA_output.gif figures/figure_PA_output.gif', shell=True)
 
 
 # Show 2016 and Remedial plans before and after MBO.
@@ -416,10 +416,10 @@ def make_pa_before_and_after():
     k =  150
     max_iter = 300
     stopping_criteria = 0.00
-    lb_frac = 0.985
+    lb_frac = 0.980
     temp =  0
     annealing = 0.985
-    verbose = 1
+    verbose = 0
     driving_distance = 0
     mode = config.MODE_BEGIN_END
     ms_param = 1
@@ -431,14 +431,14 @@ def make_pa_before_and_after():
         
         init_state = initial_state_range[i]
         
-        alt_map = ""
+        alt_map = ''
         if(init_state == config.INIT_ALT):
-            alt_map = "Remedial Plan Shapefile.shp"
+            alt_map = 'Remedial Plan Shapefile.shp'
         num_iter = run_state.run(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,alt_map)
         
         
-        begin_img = Image.open('output/flow_' + state + '_' +  str(0).rjust(3, '0') + ".png")
-        end_img = Image.open('output/flow_' + state + '_' +  str(num_iter - 1).rjust(3, '0') + ".png")
+        begin_img = Image.open('output/flow_' + state + '_' +  str(0).rjust(3, '0') + '.png')
+        end_img = Image.open('output/flow_' + state + '_' +  str(num_iter - 1).rjust(3, '0') + '.png')
         
         w, h = begin_img.size
         x_pad = 50
@@ -447,24 +447,24 @@ def make_pa_before_and_after():
         if i == 0:
             new_im = Image.new('RGBA', (int(2*w) + 3*x_pad, int(2*h) + 3*y_pad))
             draw = ImageDraw.Draw(new_im)
-            font = ImageFont.truetype("/Library/Fonts/Arial Unicode.ttf",85)
+            font = ImageFont.truetype('/Library/Fonts/Arial Unicode.ttf',85)
 
         new_im.paste(begin_img,(x_pad,y_pad + i*(h + y_pad)))
         new_im.paste(end_img,(2*x_pad + w,y_pad + i*(h + y_pad)))
         draw.text((0, int(y_pad + i*(h + y_pad))),labels[i*2],font=font,fill='#000000')
         draw.text((int(w + x_pad), int(y_pad + i*(h + y_pad))),labels[i*2 + 1],font=font,fill='#000000')
 
-    new_im.save('figure_pa.png')
+    new_im.save('figures/figure_pa.png')
 
 # Generate maps by perturbing slightly and running for a small number of iterations.
 def make_nearby_maps():
-    state = 'NC'
-    k =  150
-    max_iter = 15
+    state = 'OH'
+    k =  5
+    max_iter = 5
     init_state = config.INIT_CURRENT
-    ms_param = 1
+    ms_param = 5
     stopping_criteria = 0.00
-    lb_frac = 0.985
+    lb_frac = 0.980
     temp =  0.05
     annealing = 0.5
     verbose = 0
@@ -475,15 +475,15 @@ def make_nearby_maps():
 
     for i in range(0,num_runs):
         if i == 0:
-            p = run_state.read(state,"")
+            p = run_state.read(state,'')
        
-        num_iter = run_state.run_with_data(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,"",p)
+        num_iter = run_state.run_with_data(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,'',p)
 
-        img = Image.open('output/flow_' + state + '_' +  str(num_iter - 1).rjust(3, '0') + ".png")
+        img = Image.open('output/flow_' + state + '_' +  str(num_iter - 1).rjust(3, '0') + '.png')
 
 
         if i == 0:
-            img = Image.open('output/flow_' + state + '_' +  str(0).rjust(3, '0') + ".png")
+            img = Image.open('output/flow_' + state + '_' +  str(0).rjust(3, '0') + '.png')
 
             w, h = img.size
             
@@ -499,21 +499,21 @@ def make_nearby_maps():
 
         new_im.paste(img,(x0,y0))
 
-        plt.close("all")
+        plt.close('all')
 
         
-    new_im.save('figure_nearby_maps.png')
+    new_im.save('figures/figure_nearby_maps.png')
 
 
 # Show flow steps
 def make_flow_figure():
-    state = 'OH'
+    state = 'NC'
     k =  150
     max_iter = 8
     init_state = config.INIT_CURRENT
     ms_param = 1
     stopping_criteria = 0.00
-    lb_frac = 0.985
+    lb_frac = 0.980
     temp =  0
     annealing = 0.5
     verbose = 0
@@ -521,13 +521,13 @@ def make_flow_figure():
     mode = config.MODE_ALL
     txt_buff = 60
 
-    p = run_state.read(state,"")
-    num_iter = run_state.run_with_data(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,"",p)
+    p = run_state.read(state,'')
+    num_iter = run_state.run_with_data(state,k,max_iter,init_state,ms_param,stopping_criteria,lb_frac,temp,annealing,verbose,driving_distance,mode,'',p)
     
     for i in range(0,min(num_iter,max_iter)):
         
         if i == 0:
-            img = Image.open('output/flow_' + state + '_' +  str(0).rjust(3, '0') + ".png")
+            img = Image.open('output/flow_' + state + '_' +  str(0).rjust(3, '0') + '.png')
             
             w, h = img.size
             
@@ -536,11 +536,11 @@ def make_flow_figure():
             
             new_im = Image.new('RGBA', (int(4*w) + (5)*x_pad, int(2*h) + 3*y_pad))
             draw = ImageDraw.Draw(new_im)
-            font = ImageFont.truetype("/Library/Fonts/Arial Unicode.ttf",70)
+            font = ImageFont.truetype('/Library/Fonts/Arial Unicode.ttf',70)
 
         
         else:
-            img = Image.open('output/flow_' + state + '_' +  str(i).rjust(3, '0') + ".png")
+            img = Image.open('output/flow_' + state + '_' +  str(i).rjust(3, '0') + '.png')
         
      
         x0 = int(x_pad) + int((i % 4)*(w + x_pad))
@@ -549,9 +549,9 @@ def make_flow_figure():
         new_im.paste(img,(x0,y0))
         draw.text((x0 + w/2 - txt_buff, y0 - y_pad),'i = ' + str(i),font=font,fill='#000000')
 
-        plt.close("all")
+        plt.close('all')
 
-    new_im.save('figure_flow.png')
+    new_im.save('figures/figure_flow.png')
 
 
 ## This is where the functions are called. Uncomment to run. ##

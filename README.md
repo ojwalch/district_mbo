@@ -118,38 +118,6 @@ where
 * nearest neighbor count : (Optional) Number of neighboring units considered. Generally should be > 100
 * centroid coefficient : (Optional) Term to penalize split districts; increasing it reduces the chance of districts splitting. Generally should be > 1. 
 
-
-### Nearby Maps
-To make an image showing slightly perturbed versions of an initial mapping with a small number of flow steps applied, call
-
-```
-python demo_nearby_maps.py [2-Letter State Abbreviation]
-```
-
-e.g.,
-
-```
-python demo_nearby_maps.py NC
-```
-
-This will save an image showing 15 maps arrived at by applying low temperature and iterating the algorithm a small number of times to NC_nearby.png. The full comand syntax is 
-
-
-```
-python demo_nearby_maps.py [state] [filename.shp (in data/)] [# nearest neighbors] [centroid coefficient] [temperature] [annealing] [# iterations]
-
-```
-where 
-* state : The state you want to run
-* filename.shp : (Optional) The mapping you want to initialize from. This should be in the data/ folder.
-* nearest neighbor count : (Optional) Number of neighboring units considered. Generally should be > 100
-* centroid coefficient : (Optional) Term to penalize split districts; increasing it reduces the chance of districts splitting. Generally should be > 1. 
-* temperature : (Optional) Randomness term. Default set to 0.05 (to keep amount of perturbation small)
-* annealing rate : (Optional) Multiplier that decreases temperature each iteration. Default is 0.5.
-* number of iterations  : (Optional) Number of flow steps to run before halting execution. Default is 3. 
-
-Note that if temperature is high or the annealing rate is low, the districts might not be contiguous when the flow is stopped after the small number of steps.
-
 ### Figures
 
 Code to reproduce all the figures is in make_figures.py. You can run them with 
