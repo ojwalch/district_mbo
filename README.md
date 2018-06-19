@@ -1,6 +1,7 @@
 # district_mbo
 
-This is code simulates volume-preserving motion by mean curvature on U.S. state maps. In other words, it smooths district boundaries of maps while keeping the population in each district roughly equal. The flow can be started from either a prescribed set of district lines or random. A fuller description of the method involved can be found in a paper to appear on Arxiv. 
+This is code simulates volume-preserving motion by mean curvature on U.S. state maps. In other words, it smooths district boundaries of maps while keeping the population in each district roughly equal. The flow can be started from either a prescribed set of district lines or random. A fuller description of the method involved can be found in this pre-print: http://www.math.ucla.edu/~majaco/papers/gerrymandering.pdf
+
 
 
 ## Getting Started
