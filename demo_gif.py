@@ -25,7 +25,7 @@ k =  150
 max_iter = 700
 init_state = config.INIT_RAND
 alt_map = ''
-ms_param = 2
+ms_param = 3
 stopping_criteria = 0.00
 lb_frac = 0.985
 temp =  0.05
@@ -43,7 +43,7 @@ else:
         
         if(len(sys.argv) > 2):
             file_path = sys.argv[2]
-            if(os.path.exists(file_path)):
+            if(os.path.exists('data/' + file_path)):
                 if(file_path.endswith('.shp')):
                     init_state = config.INIT_ALT
                     alt_map = file_path
