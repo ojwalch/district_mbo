@@ -7,7 +7,7 @@
 #include <vl/kdtree.h>
 #include "maj_pop_heap.h"
 
-#define SCALING_FACTOR 0.25
+#define SCALING_FACTOR 0.125
 #define EPSILON_0 1
 #define EPSILON_MIN 1e-8
 #define TEMP_THRESH 0.0001   /* Temperature threshold for stopping */
@@ -28,7 +28,7 @@ typedef struct{
 }unitGeoData;
 
 typedef struct{
-    double id; /* GEOID for census units */
+    double id; /* GEOID for unit */
     double district; /* Initial district identifier: Used when initializing from pre-set map */
 }unitDistrictData;
 
@@ -40,7 +40,7 @@ typedef struct{ /* For sorting doubles while keeping track of indices*/
 
 typedef struct{
     weightedGraph g; /* Graph for MBO */
-    double *convolutionCoefficients; /* convolutionCoefficients[lcount*(i)) + j] : the district j coefficient for census unit (unit, tract, etc.) i  */
+    double *convolutionCoefficients; /* convolutionCoefficients[lcount*(i)) + j] : the district j coefficient for unit i  */
     int *labelMasses; /* labelMasses[lcount*(i)) + j] : the population of unit i assigned to district j */
     double *districtCentroids; /* Centroids of each district */
     double *unitCentroids; /* Centroids of each unit */
@@ -100,7 +100,7 @@ void saveState(mboStruct mbos, int iteration){
     memset(popCount,0,lcount*sizeof(int));
     
     int splitCount = 0;
-
+    
     for(int i = 0; i < pcount; i++){
         output[(lcount + 1)*i] = stateData[i].id;
         
@@ -136,10 +136,11 @@ void saveState(mboStruct mbos, int iteration){
     
     /* Write "snapshot" of flow to file */
     char buffer[32];
-
+    
     snprintf(buffer, sizeof(char) * 32, "%s_step_%i", fileName, iteration);
     writeDataToFile(output, buffer, pcount*(lcount + 1)*sizeof(int));
     free(output);
+    
 }
 
 
@@ -165,7 +166,7 @@ int cmp(const void *x, const void *y)
 }
 
 
-/* Build weight matrix from census unit longitude/latitude data */
+/* Build weight matrix from unit longitude/latitude data */
 weightedGraph createSymmetricAdjacencyMatrix(double *weights, int *neighbors, int pcount, int k){
     
     // Use medians to rescale distance
@@ -219,13 +220,13 @@ weightedGraph createSymmetricAdjacencyMatrix(double *weights, int *neighbors, in
     
     
     /* tempIndices includes repeats: if i is a neighbor of j and j is a neighbor of i, j is counted twice in i's chunk of tempIndices
-    The rest of the code in this function is to remove duplicates, resulting in a non-double counted symmetric graph */
+     The rest of the code in this function is to remove duplicates, resulting in a non-double counted symmetric graph */
     
     int *counts = calloc(pcount + 1,sizeof(int));
     int *seen = calloc(pcount,sizeof(int));
     
     
-   /* Set-up counts to remove duplicates */
+    /* Set-up counts to remove duplicates */
     for(int i = 0; i < pcount; i++){
         for(int j = tcounts[i]; j < tcounts[i + 1]; j++){
             int index = tempIndices[j];
@@ -261,7 +262,7 @@ weightedGraph createSymmetricAdjacencyMatrix(double *weights, int *neighbors, in
         }
     }
     
-    /* Create the degree matrix - a diagonal matrix of row sums for each census unit */
+    /* Create the degree matrix - a diagonal matrix of row sums for each unit */
     double *degree = calloc(pcount,sizeof(double));
     
     for(int i = 0; i < pcount;i++){
@@ -276,7 +277,7 @@ weightedGraph createSymmetricAdjacencyMatrix(double *weights, int *neighbors, in
     g.weights = gWeights;
     g.degree = degree;
     g.counts = counts;
-
+    
     free(tcounts);
     free(medians);
     free(tempIndices);
@@ -312,7 +313,7 @@ weightedGraph createSymmetricMatrix(double (* kernel)(double), double *weights, 
 /* Normalizing is an important step that improves speed and performance
  W_new = D^(-1/2) W_old D^(-1/2), D is the diagonal degree matrix where D(i,i) : the sum of all of i's weights */
 void normalizeMatrix(weightedGraph g, int pcount){
-   
+    
     double *sums = calloc(pcount,sizeof(double));
     double *weights = g.weights;
     int *indices = g.neighbors;
@@ -425,7 +426,7 @@ void calculateCoefficients(mboStruct mbos, weightedGraph dual){
     weightedGraph g = mbos.g;
     int *labelMasses = mbos.labelMasses;
     int *unitPopulation = mbos.unitPopulation;
-   
+    
     /* We're carrying out W^TWX: temp is WX and each row of X corresponds to a point; each column to a label */
     /* W is pcount x pcount; X is pcount by lcount */
     double *temp = calloc(pcount*lcount,sizeof(double));
@@ -437,15 +438,16 @@ void calculateCoefficients(mboStruct mbos, weightedGraph dual){
             for(int d = 0; d < lcount; d++){
                 
                 /* Convert labeling to probability */
-                double simplex = labelMasses[lcount*index + d]/(unitPopulation[index]*1.0);
+                double pop=fmax(unitPopulation[index],1);
+                double simplex = labelMasses[lcount*index + d]/pop;
                 temp[lcount*i + d] += g.weights[j]*simplex;
                 
             }
         }
     }
     
-   
-
+    
+    
     /* Get previous values and overwrite to zero */
     double *convolutionCoefficients = mbos.convolutionCoefficients;
     memset(convolutionCoefficients, 0, pcount*lcount*sizeof(double));
@@ -453,7 +455,7 @@ void calculateCoefficients(mboStruct mbos, weightedGraph dual){
     
     /* Normalizing factor for the heat content energy  */
     double kernelWidth = sqrt(mbos.g.counts[pcount]/(pcount*1.0));
-
+    
     /* Replace with rest of matrix vector multiplication W^T*(WX) */
     for(int i = 0; i < pcount; i++){
         for(int j = dual.counts[i]; j < dual.counts[i + 1]; j++){
@@ -466,11 +468,11 @@ void calculateCoefficients(mboStruct mbos, weightedGraph dual){
     
     free(temp);
     
-    /* Mumford-Shah step: Add the centroid distance penalty term to each entry of W^TWDX*/
+    /* Mumford-Shah step: Add the derivative MS penalty term to each entry of W^TWDX*/
     double *districtCentroids = mbos.districtCentroids;
     double *unitCentroids = mbos.unitCentroids;
     double msParameter = mbos.msParameter;
-
+    
     for(int i = 0; i < pcount; i++){
         for(int d = 0; d < lcount; d++){
             /* Compute squared distance (latitude, longitude) between districtCentroids and individual unit centroids and subtract from coefficients */
@@ -496,18 +498,20 @@ double calculateEnergy(mboStruct mbos, weightedGraph dual){
     
     double *convolutionCoefficients = mbos.convolutionCoefficients;
     
-    /* Energy calculation step. Heat content energy = (sum over x, y, i) W(x,y)*u_i(x)*(1 - u_i(y))
+    /* Energy calculatation step. Heat content energy = (sum over x, y, i) W(x,y)*u_i(x)*(1 - u_i(y))
      Auction uses the negative of the gradient.  Need to compensate for this when calculating the energy*/
+    
     
     for(int i = 0; i < pcount; i++){ // Sum over x
         for(int d = 0; d < lcount; d++){ // Sum over i
-            double simplex = labelMasses[lcount*i + d]/(unitPopulation[i]*1.0); // u_i(x)
+            double pop=fmax(unitPopulation[i],1);
+            double simplex = labelMasses[lcount*i + d]/pop; // u_i(x)
             double degreeTerm = degree[i]/kernelWidth; // Accounts for the 1 in (1 - u_i(y))
             energy += simplex*(degreeTerm - convolutionCoefficients[lcount*i + d]); // Convolution coefficients contain (sum over y) W(x,y)*u_i(y)
         }
     }
     
-    /* Normalize by number of census units in state */
+    /* Normalize by number of units */
     energy/=pcount;
     
     return energy;
@@ -530,9 +534,6 @@ void updateDistrictInformation(mboStruct mbos){
     memset(districtCentroids, 0, 2*lcount*sizeof(double));
     memset(districtPopulation, 0, lcount*sizeof(int));
     
-    /* Recompute district centroids + populations by adding up over all census units */
-    double unitCount[lcount];
-    memset(unitCount,0,lcount*sizeof(double));
     
     /* Weight centroids by amount of units in each district  */
     for(int i = 0; i < pcount; i++){
@@ -541,29 +542,31 @@ void updateDistrictInformation(mboStruct mbos){
         for(int d = 0; d < lcount; d++){
             districtCentroids[2*d] += bx*labelMasses[lcount*i + d];
             districtCentroids[2*d + 1] += by*labelMasses[lcount*i + d];
-            districtPopulation[d] += labelMasses[lcount*i + d];
-            unitCount[d] += labelMasses[lcount*i + d]/(unitPopulation[i]*1.0);
+            districtPopulation[d] += fmin(labelMasses[lcount*i + d],unitPopulation[i]);
         }
     }
+    
     
     /* Weight centroids by population */
     for(int d = 0; d < lcount; d++){
         districtCentroids[2*d]/=districtPopulation[d];
         districtCentroids[2*d + 1]/=districtPopulation[d];
+        
     }
+    
 }
 
 
 /* Reverse auction phase */
 void reverseAuctionPhase(mboStruct mbos, pop_heap *heapHolder, double *incentives, double epsilon, int lowerBound){
-   
+    
     double *convolutionCoefficients = mbos.convolutionCoefficients;
     int *unitPopulation = mbos.unitPopulation;
     int *districtPopulation = mbos.districtPopulation;
     int *labelMasses = mbos.labelMasses;
     int pcount = mbos.pcount;
     int lcount = mbos.lcount;
-
+    
     /* Loop over all districts */
     for(int d = 0; d < lcount; d++){
         
@@ -576,9 +579,9 @@ void reverseAuctionPhase(mboStruct mbos, pop_heap *heapHolder, double *incentive
             
             /* Loop over all points*/
             for(int i = 0; i < pcount; i++){
-
+                
                 /* If we don't have the full unit assigned to this district already... */
-                if(labelMasses[lcount*i + d] < unitPopulation[d]){
+                if(labelMasses[lcount*i + d] < unitPopulation[i]){
                     
                     /* Loop over all the districts again */
                     for(int k = 0; k < lcount; k++){
@@ -586,7 +589,7 @@ void reverseAuctionPhase(mboStruct mbos, pop_heap *heapHolder, double *incentive
                         /* If we find another one with non-zero mass... */
                         if(k != d && labelMasses[lcount*i + k] > 0){
                             
-                            /* Compute the gap between how badly census unit i wants to be in district k and district d */
+                            /* Compute the gap between how badly unit i wants to be in k and d */
                             double cost = (convolutionCoefficients[lcount*i + k] + incentives[k]) - (convolutionCoefficients[lcount*i + d] + incentives[d]);
                             
                             /* Get the mass (population) at this entry. */
@@ -595,7 +598,7 @@ void reverseAuctionPhase(mboStruct mbos, pop_heap *heapHolder, double *incentive
                             
                             double key = -cost;
                             
-                            /* District makes "decision" on whether or nor the census unit is a good enough candidate to justify paying its price */
+                            /* District makes "decision" on whether or nor the unit is a good enough candidate to justify paying its price */
                             /* Before reaching lower bound, candidates are always accepted by the district; after "sateity", this step looks for "good deals" */
                             
                             pop_heap_consider_candidate(&heapHolder[d], i, key, mass, lbl, gap);
@@ -629,10 +632,10 @@ void reverseAuctionPhase(mboStruct mbos, pop_heap *heapHolder, double *incentive
                 districtPopulation[d] += mass;
                 
             }
-
-            /* Update incentives that needed to be offered to get the census units */
+            
+            /* Update incentives that needed to be offered to get the units */
             incentives[d] += fmax(cost + epsilon,0);
-        
+            
         }
     }
 }
@@ -646,13 +649,13 @@ void prepareAuctionPhase(mboStruct mbos, double *incentives){
     int *labelMasses = mbos.labelMasses;
     int pcount = mbos.pcount;
     int lcount = mbos.lcount;
-
+    
     /* Zero out population, masses */
     memset(labelMasses, 0, pcount*lcount*sizeof(int));
     memset(districtPopulation, 0, lcount*sizeof(int));
     
     
-    /* Assign every census unit to the district they want most based on current incentives */
+    /* Assign every unit to the district they want most based on current incentives */
     for(int i = 0; i < pcount; i++){
         double max = -FLT_MAX;
         int ml = 0; /* Winning label */
@@ -663,7 +666,7 @@ void prepareAuctionPhase(mboStruct mbos, double *incentives){
             }
         }
         
-        labelMasses[lcount*i + ml] = unitPopulation[i];
+        labelMasses[lcount*i + ml] = fmax(unitPopulation[i],1);
         districtPopulation[ml] += unitPopulation[i];
     }
 }
@@ -671,7 +674,7 @@ void prepareAuctionPhase(mboStruct mbos, double *incentives){
 
 /* Check if each district satisfies lower population bound */
 int feasibilityTest(int *districtPopulation, int lowerBound, int lcount){
-
+    
     int feasible = 1;
     for(int d = 0; d < lcount; d++){
         if(districtPopulation[d] < lowerBound){
@@ -694,13 +697,13 @@ void boxMuellerTransform(double *z1, double *z2, double mu, double sigma){
 /* Add noise to convolution coefficients */
 void addTemperature(mboStruct mbos){
     double temperature = mbos.temperature;
-   
+    
     if(verbose){
         printf("Temperature: %f\n", temperature);
     }
     
     double noise1, noise2; // Noise has to be generated in pairs
-
+    
     int pcount = mbos.pcount;
     int lcount = mbos.lcount;
     
@@ -708,12 +711,41 @@ void addTemperature(mboStruct mbos){
     
     for(int i = 0; i < pcount; i++){
         for(int d = 0; d < lcount; d++){
-    
+            
             boxMuellerTransform(&noise1,&noise2,0,temperature);
             convolutionCoefficients[lcount*i + d] += noise1;
             
         }
     }
+}
+
+void postAuctionCorrection(mboStruct mbos, double *incentives){
+    
+    double *convolutionCoefficients = mbos.convolutionCoefficients;
+    int *unitPopulation = mbos.unitPopulation;
+    int *labelMasses = mbos.labelMasses;
+    int pcount = mbos.pcount;
+    int lcount = mbos.lcount;
+    
+    
+    /* Reassign units with no population */
+    for(int i = 0; i < pcount; i++){
+        if(unitPopulation[i]==0){
+            memset(&labelMasses[lcount*i],0,lcount*sizeof(int));
+            double max = -FLT_MAX;
+            int ml = 0; /* Winning label */
+            for(int d = 0; d < lcount; d++){
+                if(convolutionCoefficients[lcount*i + d] + incentives[d] > max){
+                    max = convolutionCoefficients[lcount*i + d] + incentives[d];
+                    ml = d;
+                }
+            }
+            
+            labelMasses[lcount*i + ml] = 1;
+            
+        }
+    }
+    
 }
 
 
@@ -724,7 +756,7 @@ void districtAuction(mboStruct mbos, int lowerBound){
     int *districtPopulation = mbos.districtPopulation;
     double epsilon = EPSILON_0;
     int lcount = mbos.lcount;
-
+    
     
     /* Initialize heap */
     pop_heap heapHolder[lcount];
@@ -740,7 +772,7 @@ void districtAuction(mboStruct mbos, int lowerBound){
     
     /* Get solution with error at most EPSILON_MIN */
     while(epsilon > EPSILON_MIN){
-
+        
         int feasible = 0;
         
         prepareAuctionPhase(mbos, incentives);
@@ -751,9 +783,12 @@ void districtAuction(mboStruct mbos, int lowerBound){
             reverseAuctionPhase(mbos, heapHolder, incentives, epsilon, lowerBound);
             feasible = feasibilityTest(districtPopulation, lowerBound, lcount);
         }
+        /* Make sure units with no people are assigned to the correct district */
+        postAuctionCorrection(mbos, incentives);
         
         /* Feasible solution found! Try again with lower error tolerance. */
         epsilon *= SCALING_FACTOR;
+        
     }
     
     /* Clean-up */
@@ -774,7 +809,36 @@ int massChanged(int *labelMasses, int *oldLabelMasses, int pcount, int lcount){
 }
 
 
-/* Main function: Runs Auction dynamics + Centroid distance penalty (Mumford-Shah) */
+/* Quantify district splitting */
+double checkSplitDistricts(mboStruct mbos){
+    int *labelMasses = mbos.labelMasses;
+    int pcount = mbos.pcount;
+    int lcount = mbos.lcount;
+    
+    double splitFraction = 0;
+    
+    for(int i = 0;i < pcount; i++){
+        int split = 0;
+        int seen = 0;
+        for(int d = 0;d < lcount;d++){
+            if(labelMasses[lcount*i + d] > 0 && seen == 0){
+                seen = 1;
+            }else if(labelMasses[lcount*i + d]>0){
+                split = 1;
+            }
+            
+        }
+        splitFraction+=split;
+    }
+    
+    splitFraction/=pcount;
+    
+    return splitFraction;
+    
+}
+
+
+/* Main function: Runs MBO + Mumford-Shah */
 void runMBO(mboStruct mbos, int lowerBound){
     
     int pcount = mbos.pcount;
@@ -786,7 +850,7 @@ void runMBO(mboStruct mbos, int lowerBound){
     
     int *labelMasses = mbos.labelMasses;
     int *oldLabelMasses = calloc(pcount*lcount,sizeof(int));
-
+    
     memcpy(oldLabelMasses,labelMasses,pcount*lcount*sizeof(int));
     int *unitPopulation = mbos.unitPopulation;
     
@@ -806,7 +870,7 @@ void runMBO(mboStruct mbos, int lowerBound){
     }
     
     updateDistrictInformation(mbos);
-
+    
     
     for(int i = 0; i < maxIters; i++){
         
@@ -842,11 +906,19 @@ void runMBO(mboStruct mbos, int lowerBound){
             printf("Auction step...\n");
         }
         
+        
         /* Run auction */
         districtAuction(mbos, lowerBound);
         
         /* Update post-auction*/
         updateDistrictInformation(mbos);
+        
+        double splitFraction = checkSplitDistricts(mbos);
+        
+        if(verbose){
+            printf("Fraction of split districts %e\n",splitFraction);
+        }
+        
         
         /* See if stopping criteria has been met */
         int changed = massChanged(labelMasses, oldLabelMasses, pcount, lcount);
@@ -859,7 +931,7 @@ void runMBO(mboStruct mbos, int lowerBound){
         }
         
         memcpy(oldLabelMasses,labelMasses,pcount*lcount*sizeof(int));
- 
+        
     }
     
     
@@ -880,7 +952,7 @@ void computeNearestNeighbors(double *unitCentroids, double *distances, int *neig
     
     int numTrees = 1;
     int fullDim = 2;
-   
+    
     vl_size numN = k;
     vl_size tot = pcount;
     VlKDForest *forest = vl_kdforest_new(VL_TYPE_DOUBLE,fullDim,numTrees,VlDistanceL2);
@@ -919,11 +991,9 @@ void computeNearestNeighborsDriving(double *drivingDistance, double *distances, 
     
     free(sortedDrivingDistances);
 }
-
-
 /* Create mbo struct from parameters and loaded files   */
 mboStruct createMBO(unitGeoData *stateData, double msParameter, double stoppingCriteria, int pcount, int lcount, int k, int maxIters, unitDistrictData *unitData, double temp, double annealing, int initializeRandom){
-        mboStruct mbos;
+    mboStruct mbos;
     
     mbos.convolutionCoefficients = calloc(pcount*lcount,sizeof(double));
     mbos.labelMasses = calloc(pcount*lcount,sizeof(int));
@@ -967,7 +1037,7 @@ mboStruct createMBO(unitGeoData *stateData, double msParameter, double stoppingC
     }
     
     for(int i = 0; i < pcount; i++){
-        mbos.unitPopulation[i] = stateData[i].pop + 1;
+        mbos.unitPopulation[i] = stateData[i].pop ;
         mbos.unitCentroids[2*i] = (stateData[i].latitude - minLat)/scaleDimension;
         mbos.unitCentroids[2*i + 1] = (stateData[i].longitude - minLong)/scaleDimension;
         
@@ -995,7 +1065,7 @@ mboStruct createMBO(unitGeoData *stateData, double msParameter, double stoppingC
     
     /* Compute nearest neighbors, create and normalize W*/
     if(useDrivingDistance){
-       computeNearestNeighborsDriving(drivingDistance, distances, neighbors, pcount, k);
+        computeNearestNeighborsDriving(drivingDistance, distances, neighbors, pcount, k);
     }else{
         computeNearestNeighbors(mbos.unitCentroids, distances, neighbors, pcount, k);
     }
@@ -1004,7 +1074,7 @@ mboStruct createMBO(unitGeoData *stateData, double msParameter, double stoppingC
     mbos.g = createSymmetricMatrix(kernel, distances, neighbors, pcount, k);
     
     normalizeMatrix(mbos.g,mbos.pcount); /* Normalizing is an important step that improves speed and performance */
-
+    
     free(distances);
     free(neighbors);
     
@@ -1078,7 +1148,7 @@ void runColorAuction(double *assignmentCoefficients, int *colorAssignments, int 
                         
                     }
                     colorAssignments[i]=ml;
-                   
+                    
                     
                     
                 }
@@ -1095,14 +1165,10 @@ void runColorAuction(double *assignmentCoefficients, int *colorAssignments, int 
         }
         
         epsilon/=scalingFactor;
-        printf("%f\n",epsilon);
+        //printf("%f\n",epsilon);
         
         
     }
-    
-   
-    
-    
 }
 
 
@@ -1112,7 +1178,7 @@ void assignDistrictColors(double *colors, double *districtCentroids, int *colorA
     double helper[lcount];
     double median[lcount];
     
-   
+    
     for(int i=0;i<lcount;i++){
         colorAssignments[i]=i;
     }
@@ -1164,15 +1230,15 @@ void assignDistrictColors(double *colors, double *districtCentroids, int *colorA
     for(int i=0; i<iterations;i++){
         for(int a = 0; a < lcount ; a++){
             for(int b = 0; b < lcount ; b++){
-               
-               
+                
+                
                 
                 convolution[3*a] += weights[lcount*a + b]*colors[3*colorAssignments[b]];
                 convolution[3*a+1] += weights[lcount*a + b]*colors[3*colorAssignments[b]+1];
                 convolution[3*a+2] += weights[lcount*a + b]*colors[3*colorAssignments[b]+2];
                 
-               
-               
+                
+                
             }
             
         }
@@ -1231,7 +1297,7 @@ void computeDistrictColors(double *colors, double *districtCentroids, int lcount
     for(int i = 0 ;i < lcount; i++){
         
         for(int j = 0 ;j < lcount; j++){
-
+            
             double factor = sqrt(median[i]*median[j]);
             weights[lcount*i + j] = kernel(weights[lcount*i + j]/factor);
             sums[i] += weights[lcount*i + j];
@@ -1246,7 +1312,7 @@ void computeDistrictColors(double *colors, double *districtCentroids, int lcount
     }
     
     int iterations = 500;
-
+    
     for(int i = 0; i < iterations; i++){
         
         double gradient[3*lcount];
@@ -1286,15 +1352,14 @@ void computeDistrictColors(double *colors, double *districtCentroids, int lcount
 int main(int argc, char *argv[]){
     
     srand(time(NULL));
-
-    fileName = argv[1]; /* Filename of census unit input data file; format is (idnum, lat, long, pop) [doubles] */
-
+    
+    fileName = argv[1]; /* Filename of unit input data file; format is (idnum, lat, long, pop) [doubles] */
     int pcount = atoi(argv[2]); /* Number of census units */
     int lcount = atoi(argv[3]); /* Number of districts */
     int k = atoi(argv[4]); /* Number of neighbors in the weighted graph */
     int maxIters = atoi(argv[5]); /* Max number of iterations to run */
     int initializeRandom = atoi(argv[6]); /* Random initialization if 1, 0 otherwise */
-    double msParameter = atof(argv[7]); /* Mumford-Shah Penalty Weight: determines relative importance of centroid distances */
+    double msParameter = atof(argv[7]); /* Mumford-Shah Penalty Weight: 1 means centroids district matters as much as boundary */
     double stoppingCriteria = atof(argv[8]);  /* Convergence halting parameter */
     int lowerBound = atoi(argv[9]);  /* Min population per district. */
     char *unitDistrictFile = argv[10]; /* Initial districts file for units */
@@ -1302,49 +1367,54 @@ int main(int argc, char *argv[]){
     double annealing = atof(argv[12]); /* Multiplicative annealing rate */
     verbose = atoi(argv[13]); /* Multiplicative annealing rate */
     useDrivingDistance = atoi(argv[14]); /* 0: use default distance; 1: use driving distance */
-
+    
+    
+    
     /* Read data */
-    stateData = readDataFromFile(fileName); //read in the census unit data
+    stateData = readDataFromFile(fileName); // Read in the census unit data
     unitDistricts = readDataFromFile(unitDistrictFile);
     
     if(useDrivingDistance){
         printf("Loading MD driving data...\n");
-        drivingDistance = readDataFromFile("data/MD_DrivingDistance");
+        drivingDistance = readDataFromFile("../MD_DrivingDistance");
     }
     
     /* Create holder for energy */
     energyAtStep = calloc(maxIters,sizeof(double));
     
-
+    
     /* MBO struct created here */
     mboStruct mbos = createMBO(stateData, msParameter, stoppingCriteria, pcount, lcount, k,  maxIters, unitDistricts, temp, annealing, initializeRandom);
     
     /* Run MBO */
-    runMBO(mbos, lowerBound);
     
-   
+    clock_t b,e;
+    b = clock();
+    runMBO(mbos, lowerBound);
+    e = clock();
+    printf("Computation time: %f\n", (e-b)/(CLOCKS_PER_SEC*1.0));
     
     
     /* Sort by geography to match to color */
     indexedDouble *latitude = calloc(lcount,sizeof(indexedDouble));
-
+    
     for(int d = 0; d < lcount; d++){
         latitude[d].dist = mbos.districtCentroids[2*d];
         latitude[d].index = d;
     }
     
     qsort(&latitude[0], lcount, sizeof(indexedDouble), cmpIndexedDouble);
-
+    
     
     /* Print final populations to terminal */
     int *output = calloc(pcount*(lcount + 1),sizeof(int));
     
     int popCount[lcount];
     memset(popCount,0,lcount*sizeof(int));
-
+    
     int relabelings[lcount];
     memset(relabelings,0,lcount*sizeof(int));
-
+    
     
     for(int i = 0; i < pcount; i++){
         output[(lcount + 1)*i] = stateData[i].id;
@@ -1356,7 +1426,7 @@ int main(int argc, char *argv[]){
     
     for(int d = 0; d < lcount; d++){
         relabelings[d] = latitude[d].index;
-
+        
         if(verbose){
             printf("Population %d: %d\n",d,popCount[d]);
         }
@@ -1365,7 +1435,7 @@ int main(int argc, char *argv[]){
     
     /* Write energy output to file */
     writeDataToFile(energyAtStep,"energy",maxIters*sizeof(double));
-
+    
     /* Write labeling output to file */
     writeDataToFile(output, "mbo_output",pcount*(lcount+1)*sizeof(int));
     
@@ -1373,8 +1443,6 @@ int main(int argc, char *argv[]){
     writeDataToFile(relabelings, "geosorted_labels",lcount*sizeof(int));
     
     /* Write color file for districts */
-    
-    /*
     double colors[3*lcount];
     for(int i = 0; i < lcount ; i++){
         
@@ -1383,20 +1451,18 @@ int main(int argc, char *argv[]){
         colors[3*i + 2] = rand()/(RAND_MAX*1.0);
         
     }
-
-    
     
     int colorAssignments[lcount];
     assignDistrictColors(colors, mbos.districtCentroids, colorAssignments, lcount);
-    writeDataToFile(colorAssignments, "district_colors", lcount*sizeof(double));
-*/
+    // writeDataToFile(colorAssignments, "district_colors", lcount*sizeof(double));
+    
     /* Clean-up */
     destroyMBOStruct(mbos); //cleanup
     free(stateData);
     free(output);
     free(unitDistricts);
     free(energyAtStep);
-
+    
 }
 
 
